@@ -7,6 +7,17 @@ from src.crawler.crawler import Crawler
 
 PIXEL_SPACING = 3  # moves mouse by this much to find value through hover tooltip
 
+# spacing adjustments for special cases:
+LEFT_ALIGNED = {
+    # label: actual key
+    '0.0': '0.01',
+    '0.8': '0.8'
+}
+RIGHT_ALIGNED = {
+    # label: actual key
+    '1.0': '0.99'
+}
+
 
 class ValuesCrawler(Crawler):
 
@@ -41,12 +52,11 @@ class ValuesCrawler(Crawler):
 
         search_range = self._canvas_search_range(canvas)
 
-        ticks = self._crawl_ticks(container)[1:-1]  # first and last ticks don't have values
+        ticks = self._crawl_ticks(container)
         values = {}
         for tick in ticks:
-            tick_key = tick.get_attribute("innerHTML")
-            raw_value = self._find_hover(tick, search_range)
-            values[tick_key] = self._parse_value(raw_value)
+            key, raw_value = self._find_hover(tick, search_range)
+            values[key] = self._parse_value(raw_value)
 
         return values
 
@@ -61,8 +71,14 @@ class ValuesCrawler(Crawler):
         tick_action = ActionChains(self._driver.get())
         tick_action.move_to_element(tick).perform()
 
-        if tick_key == '0.8':
-            self._align_corner_case()
+        # special cases
+        if tick_key in LEFT_ALIGNED.keys():
+            self._left_aligned_corner_case()
+            tick_key = LEFT_ALIGNED[tick_key]  # for a few cases key isn't the actual value (e.g.: 0.0 -> 0.01)
+
+        if tick_key in RIGHT_ALIGNED.keys():
+            self._right_aligned_corner_case()
+            tick_key = RIGHT_ALIGNED[tick_key]
 
         pretty_pair = ''.join(self._pair)  # for logging purposes
 
@@ -73,15 +89,22 @@ class ValuesCrawler(Crawler):
             if elem:
                 value = elem.get_attribute("innerHTML")
                 print(f'[{pretty_pair}][{tick_key}] pixel [{i}] tooltip: [{value}]')
-                return value
+                return tick_key, value
 
             percentage = f"{floor(i / max_range * 100)}%"
             print(f"[{pretty_pair}][{tick_key}][{percentage}] pixel [{i} of {max_range}] ... ")
 
-    def _align_corner_case(self):
+        raise "couldn't find tick"
+
+    def _left_aligned_corner_case(self):
         # fixes slightly left aligned tick
         align_action = ActionChains(self._driver.get())
         align_action.move_by_offset(6, 0).perform()
+
+    def _right_aligned_corner_case(self):
+        # fixes slightly right aligned tick
+        align_action = ActionChains(self._driver.get())
+        align_action.move_by_offset(-6, 0).perform()
 
     def _crawl_tooltip(self):
         tooltip_action = ActionChains(self._driver.get())

@@ -26,7 +26,8 @@ class Writer:
         return writer
 
     def _get_header(self):
-        ticks = [str(i/10) for i in range(1, 10)]
+        # 0.1 to 0.9 plus corner cases 0.01 and 0.99
+        ticks = ['0.01'] + [str(i/10) for i in range(1, 10)] + ['0.99']
         return ['pair'] + ticks
 
     def write(self, pair, values):
